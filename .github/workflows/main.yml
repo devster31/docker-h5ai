@@ -1,0 +1,96 @@
+---
+name: docker build
+on:
+  push:
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+  repository_dispatch: ~
+  schedule:
+    - cron:  '* * 1,15 * *'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Docker
+        uses: docker-practice/actions-setup-docker@0.0.1
+        with:
+          docker_version: 19.03
+          docker_channel: stable
+
+      - name: Version check
+        shell: bash
+        run: |
+          # start of script
+          function get_token() {
+              local image=$1
+              curl -sS \
+              "https://auth.docker.io/token?scope=repository:$image:pull&service=registry.docker.io" \
+              | jq -r '.token'
+          }
+
+          function get_digest() {
+              local image=$1
+              local tag=$2
+              local token=$3
+              curl -sSL \
+              --header "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+              --header "Authorization: Bearer $token" \
+              "https://registry-1.docker.io/v2/$image/manifests/$tag" \
+              | jq -r '.config.digest'
+          }
+
+          function get_image_configuration() {
+              local image=$1
+              local token=$2
+              local digest=$3
+              curl -sSL --header "Authorization: Bearer $token" \
+              "https://registry-1.docker.io/v2/$image/blobs/$digest" \
+              | jq -r '.container_config'
+          }
+
+          function get_image_info {
+              local image="devster31/h5ai"
+              local token
+              token=$(get_token $image)
+              local digest
+              digest=$(get_digest "${image}" "${tag:-latest}" "${token}")
+              get_image_configuration "${image}" "${token}" "${digest}"
+          }
+
+          EXT_H5AI_VER=$(get_image_info | jq -r '.Labels."org.opencontainers.image.h5ai.version"')
+
+          H5AI_RELEASE_URL="https://release.larsjung.de/h5ai/"
+          RESP=$(curl -Ls -w "%{http_code}" -o /dev/null "${H5AI_RELEASE_URL}")
+          if [ "${RESP}" == 200 ]; then
+              CUR_H5AI_VER=$(curl -sSX GET "${H5AI_RELEASE_URL}" | \
+                  awk 'BEGIN { RS = "<[/]?a[ >]" ; FS = "[=>-]"}
+                      /zip/ { gsub("\"", "") ; gsub(".zip", "") ; print $3 }' | \
+                  sort | tail -n1)
+          else
+              echo "::error ::Unable to get the URL:${QB_DEB_URL}"
+              exit 1
+          fi
+
+          if [ "${CUR_H5AI_VER}" != "${EXT_H5AI_VER}" ]; then
+              RUN_BUILD=yes
+          else
+              RUN_BUILD=no
+          fi
+
+          echo "::set-output name=h5ai_version::${CUR_H5AI_VER}"
+          echo "::set-output name=trigger::${RUN_BUILD}"
+        id: version_check
+
+      - name: Build
+        if: success() && steps.version_check.outputs.trigger == 'yes'
+        run: |
+          echo ${{ secrets.docker_hub_password }} | docker login --username ${{ secrets.docker_hub_username }} --password-stdin
+          docker build . \
+            --build-arg H5AI_VER="${{ steps.version_check.outputs.h5ai_version }}" \
+            --tag devster31/h5ai:latest \
+            --tag devster31/h5ai:"${{ steps.version_check.outputs.h5ai_version }}"
+          docker push devster31/h5ai
+...
