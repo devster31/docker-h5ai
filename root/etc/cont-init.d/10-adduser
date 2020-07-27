@@ -1,0 +1,15 @@
+#!/usr/bin/with-contenv bash
+
+PUID=${PUID:-100}
+PGID=${PGID:-101}
+
+usermod -o -u "$PUID" nginx
+groupmod -o -g "$PGID" nginx
+
+echo "-------------------------------------
+GID/UID
+-------------------------------------
+User home:   $(echo ~nginx)
+User uid:    $(id -u nginx)
+User gid:    $(id -g nginx)
+-------------------------------------"

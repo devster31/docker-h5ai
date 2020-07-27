@@ -1,0 +1,5 @@
+#!/usr/bin/execlineb -P
+with-contenv
+importas -D 022 -s umaskSet UMASK_SET
+umask ${umaskSet}
+/usr/sbin/php-fpm7 --nodaemonize

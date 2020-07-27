@@ -1,0 +1,15 @@
+#!/usr/bin/with-contenv bash
+
+set -o xtrace
+
+# make our folders
+mkdir -p \
+	/config
+
+# copy config
+[[ ! -e /config/options.json ]] && \
+	cp /var/lib/nginx/html/_h5ai/private/conf/options.json /config/options.json
+
+# permissions
+chown -R nginx:nginx \
+	/config
