@@ -1,5 +1,0 @@
-#!/usr/bin/execlineb -P
-with-contenv
-importas -D 022 -s umaskSet UMASK_SET
-umask ${umaskSet}
-/usr/sbin/nginx -g "daemon off;"
