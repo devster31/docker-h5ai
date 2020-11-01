@@ -7,7 +7,7 @@ on:
       - 'LICENSE'
   repository_dispatch: ~
   schedule:
-    - cron:  '* * 1,15 * *'
+    - cron:  '0 9 1,15 * *'
 jobs:
   build:
     runs-on: ubuntu-latest
